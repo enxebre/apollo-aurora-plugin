@@ -1,0 +1,55 @@
+# Install (docker-py) python package as is a docker module dependency.
+- pip: name=docker-py version=1.1.0
+
+- name: run aurora container
+  when: aurora_enabled
+  docker:
+    name: aurora
+    image: "{{ aurora_image }}"
+    state: started
+    restart_policy: "{{ aurora_restart_policy }}"
+    ports:
+    - "{{ aurora_host_port }}:8081"
+    expose:
+    - "8081"
+    net: "{{ aurora_net }}"
+    command: "{{ aurora_command }}"
+    memory_limit: "{{ aurora_container_memory_limit }}"
+    env:
+      CLUSTER: "{{ aurora_cluster }}"
+      ZK: "{{ aurora_peers_nodes }}"
+      MESOS_ZK: "{{ aurora_peers_master }}"
+      NATIVE_LOG_QUORUM_SIZE: "{{ aurora_quorum }}"
+      AURORA_DATA: "{{ aurora_data }}"
+      EXECUTOR_RESOURCES: "{{ aurora_executor_resources }}"
+
+- name: upload aurora template service
+  when: aurora_enabled
+  template:
+    src: aurora.conf.j2
+    dest: /etc/init/aurora.conf
+    mode: 0755
+  sudo: yes
+  tags:
+    - aurora
+
+# Attach to the running container, or start it if needed
+# and forward all signals so that the process manager can detect
+# when a container stops and correctly restart it.
+- name: ensure aurora is running (and enable it at boot)
+  when: aurora_enabled
+  sudo: yes
+  service:
+    name: aurora
+    state: started
+    enabled: yes
+  tags:
+    - aurora
+
+# tasks for stoping docker aurora
+- name: stop aurora container
+  when: not aurora_enabled
+  docker:
+    name: aurora
+    image: "{{ aurora_image }}"
+    state: stopped

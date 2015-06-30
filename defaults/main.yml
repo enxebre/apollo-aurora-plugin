@@ -1,0 +1,31 @@
+---
+# defaults file for aurora
+aurora_enabled: true
+aurora_version: 'latest'
+aurora_restart_policy: 'always'
+aurora_net: 'bridge'
+aurora_hostname: "{{ ansible_ssh_host }}"
+aurora_host_port: '8082'
+aurora_container_memory_limit: '512MB'
+aurora_server_zk_group: mesos_masters
+aurora_image: "medallia/aurora-scheduler:{{ aurora_version }}"
+aurora_cluster: 'apollo-aurora'
+aurora_quorum: 2
+aurora_data: '/opt/aurora'
+aurora_executor_resources: 'file:///foo/bar/zaa'
+aurora_peers_nodes: "
+{%- if aurora_zk_url is defined -%}
+    {{ aurora_zk_url }}
+{%- else -%}
+    {%- set aurora_peers = [] -%}
+    {%- for host in groups[aurora_server_zk_group] -%}
+      {%- if host not in aurora_peers -%}
+        {%- set current_host = hostvars[host]['ansible_ssh_host'] + ':' + zookeeper_client_port -%}
+        {%- do aurora_peers.append(current_host) -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ aurora_peers|join(',') }}
+{%- endif -%}"
+
+aurora_peers_master: "{%- set aurora_peers = 'zk://' + aurora_peers_nodes + '/mesos' -%} {{ aurora_peers }}"
+aurora_command: "medallia/aurora-scheduler"
